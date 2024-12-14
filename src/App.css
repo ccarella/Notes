@@ -1,0 +1,74 @@
+/* Container for the two columns */
+.container {
+  display: flex;
+  height: 100vh; /* Full viewport height */
+  align-items: stretch;
+}
+
+/* Left column - Notes List */
+.left-column {
+  flex: 1; /* 1/4 width */
+  background-color: #f0f0f0; /* Light gray background */
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto; /* Enable scrolling if content exceeds height */
+}
+
+/* Note items */
+.note-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ddd; /* Horizontal divider */
+  cursor: pointer;
+}
+
+.note-item.active {
+  background-color: #e0e0e0; /* Highlight selected note */
+}
+
+.note-item:hover {
+  background-color: #dcdcdc; /* Highlight on hover */
+}
+
+/* Create Note Button */
+.create-note-button {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: #4caf50; /* Green button */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.create-note-button:hover {
+  background-color: #45a049; /* Darker green on hover */
+}
+
+/* Right column - Text Editor */
+.right-column {
+  flex: 3; /* 3/4 width */
+  background-color: #ffffff;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.note-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* Vertical divider */
+.divider {
+  width: 1px;
+  background-color: #cccccc; /* Light gray for the divider */
+}
