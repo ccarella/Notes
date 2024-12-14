@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_API_KEY,
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,
@@ -16,4 +18,13 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore
 const db = getFirestore(app);
 
-export default db;
+// Initialize Firebase Authentication
+const auth = getAuth(app);
+
+// Define Action Code Settings for Email Link Authentication
+const actionCodeSettings = {
+  url: process.env.REACT_APP_AUTH_REDIRECT_URL || "http://localhost:3000", // Use environment variable or fallback to localhost
+  handleCodeInApp: true, // Indicates that this link is handled in the app
+};
+
+export { db, auth, actionCodeSettings }; // Export db, auth, and actionCodeSettings
