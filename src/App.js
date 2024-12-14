@@ -23,18 +23,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [emailLinkSent, setEmailLinkSent] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [view, setView] = useState("list"); // "list" or "details"
 
-  // Track screen size for responsiveness
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -42,7 +32,6 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Handle email link sign-in
   useEffect(() => {
     const handleEmailLinkSignIn = async () => {
       if (isSignInWithEmailLink(auth, window.location.href)) {
@@ -62,7 +51,6 @@ function App() {
     handleEmailLinkSignIn();
   }, []);
 
-  // Fetch notes from Firestore
   useEffect(() => {
     if (!user) return;
 
@@ -99,7 +87,6 @@ function App() {
     try {
       await sendSignInLinkToEmail(auth, email, actionCodeSettings);
       localStorage.setItem("emailForSignIn", email);
-      setEmailLinkSent(true);
     } catch (error) {
       console.error("Error sending magic link:", error);
     }
@@ -122,6 +109,7 @@ function App() {
     const createdNote = { id: docRef.id, ...newNote };
     setNotes((prev) => [...prev, createdNote]);
     setSelectedNote(createdNote);
+    setView("details");
   };
 
   const handleContentChange = async (event) => {
@@ -133,12 +121,6 @@ function App() {
 
     const noteRef = doc(db, `users/${user.uid}/notes`, selectedNote.id);
     await updateDoc(noteRef, { content: updatedContent });
-
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === selectedNote.id ? { ...note, content: updatedContent } : note
-      )
-    );
   };
 
   const handleBackToList = () => {
@@ -148,146 +130,94 @@ function App() {
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center">
-        {!emailLinkSent ? (
-          <div className="flex flex-col space-y-4">
-            <input
-              type="email"
-              placeholder="Email"
-              className="border p-2 rounded"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="border p-2 rounded"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              className="bg-blue-500 text-white py-2 px-4 rounded-lg"
-              onClick={handleSignIn}
-            >
-              Sign In
-            </button>
-            <button
-              className="bg-green-500 text-white py-2 px-4 rounded-lg"
-              onClick={handleSignUp}
-            >
-              Sign Up
-            </button>
-            <button
-              className="bg-purple-500 text-white py-2 px-4 rounded-lg"
-              onClick={handleSendMagicLink}
-            >
-              Sign in with Magic Link
-            </button>
-          </div>
-        ) : (
-          <p>Magic link sent to your email. Check your inbox to log in.</p>
-        )}
+        <div className="flex flex-col space-y-4 w-full max-w-md p-6">
+          <input
+            type="email"
+            placeholder="Email"
+            className="border p-3 rounded-lg text-lg"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="border p-3 rounded-lg text-lg"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            className="bg-blue-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            onClick={handleSignIn}
+          >
+            Sign In
+          </button>
+          <button
+            className="bg-green-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            onClick={handleSignUp}
+          >
+            Sign Up
+          </button>
+          <button
+            className="bg-purple-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            onClick={handleSendMagicLink}
+          >
+            Send Magic Link
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex h-screen font-roboto">
-      {/* Mobile Layout */}
-      {isMobile ? (
-        view === "list" ? (
-          <div className="w-full bg-gray-50 shadow-md">
-            <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl font-bold flex items-center">
-              📝 Notes
-            </div>
-            <div className="flex-grow overflow-y-auto p-4 space-y-2">
-              {notes.map((note) => (
-                <div
-                  key={note.id}
-                  className={`p-3 bg-gray-100 rounded-lg shadow cursor-pointer hover:bg-gray-200 transition`}
-                  onClick={() => {
-                    setSelectedNote(note);
-                    setView("details");
-                  }}
-                >
-                  {note.content.split("\n")[0] || "Untitled Note"}
-                </div>
-              ))}
-            </div>
-            <div className="p-4">
-              <button
-                className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg hover:bg-blue-600 transition"
-                onClick={handleCreateNote}
-              >
-                Create Note
-              </button>
-            </div>
+      {view === "list" ? (
+        <div className="w-full bg-gray-50 shadow-md">
+          <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl font-bold">
+            📝 Notes
           </div>
-        ) : (
-          <div className="w-full bg-gray-50 shadow-md flex flex-col">
-            <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl font-bold flex items-center">
-              <button
-                className="text-sm bg-gray-300 text-black py-1 px-2 rounded-lg mr-2"
-                onClick={handleBackToList}
+          <div className="flex-grow overflow-y-auto p-4 space-y-2">
+            {notes.map((note) => (
+              <div
+                key={note.id}
+                className={`p-3 bg-gray-100 rounded-lg shadow cursor-pointer hover:bg-gray-200 transition`}
+                onClick={() => {
+                  setSelectedNote(note);
+                  setView("details");
+                }}
               >
-                &lt; Back
-              </button>
-              <span>Note</span>
-            </div>
-            <textarea
-              className="flex-grow w-full h-full border border-gray-300 rounded-lg p-4 text-lg leading-relaxed focus:ring-2 focus:ring-blue-500 shadow-sm"
-              value={selectedNote.content}
-              onChange={handleContentChange}
-            />
+                {note.content.split("\n")[0] || "Untitled Note"}
+              </div>
+            ))}
           </div>
-        )
+          <div className="p-4">
+            <button
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg hover:bg-blue-600 transition"
+              onClick={handleCreateNote}
+            >
+              Create Note
+            </button>
+          </div>
+        </div>
       ) : (
-        /* Desktop Layout */
-        <div className="flex w-full h-full">
-          {/* Sidebar */}
-          <div className="w-1/3 bg-gray-50 shadow-md flex flex-col">
-            <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl font-bold flex items-center justify-between">
-              📝 Notes
-              <button
-                className="text-sm bg-red-500 py-1 px-2 rounded-lg"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </button>
-            </div>
-            <div className="flex-grow overflow-y-auto p-4 space-y-2">
-              {notes.map((note) => (
-                <div
-                  key={note.id}
-                  className={`p-3 bg-gray-100 rounded-lg shadow cursor-pointer hover:bg-gray-200 transition ${
-                    selectedNote?.id === note.id ? "ring-2 ring-blue-500" : ""
-                  }`}
-                  onClick={() => setSelectedNote(note)}
-                >
-                  {note.content.split("\n")[0] || "Untitled Note"}
-                </div>
-              ))}
-            </div>
-            <div className="p-4">
-              <button
-                className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg hover:bg-blue-600 transition"
-                onClick={handleCreateNote}
-              >
-                Create Note
-              </button>
-            </div>
+        <div className="flex flex-col w-full h-screen bg-white">
+          {/* Updated Header */}
+          <div className="p-4 bg-gray-100 shadow-sm flex items-center space-x-4">
+            <button
+              className="text-blue-500 text-lg font-medium"
+              onClick={handleBackToList}
+            >
+              &lt; Back
+            </button>
+            <h1 className="text-xl font-semibold">{selectedNote?.content.split("\n")[0] || "Untitled Note"}</h1>
           </div>
-          {/* Main Editor */}
-          <div className="flex-grow bg-gray-50 p-4">
-            {selectedNote ? (
-              <textarea
-                className="w-full h-full border border-gray-300 rounded-lg p-4 text-lg leading-relaxed focus:ring-2 focus:ring-blue-500 shadow-sm"
-                value={selectedNote.content}
-                onChange={handleContentChange}
-              />
-            ) : (
-              <p className="text-gray-500">Select a note to edit</p>
-            )}
-          </div>
+
+          {/* Note Editor */}
+          <textarea
+            className="flex-grow w-full border-0 p-4 text-lg focus:ring-0 focus:outline-none"
+            placeholder="Start typing..."
+            value={selectedNote?.content || ""}
+            onChange={handleContentChange}
+          />
         </div>
       )}
     </div>
