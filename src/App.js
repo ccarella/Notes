@@ -6,16 +6,32 @@ import {
   addDoc,
   updateDoc,
   doc,
+  deleteDoc,
 } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendSignInLinkToEmail,
-  signOut,
   onAuthStateChanged,
   isSignInWithEmailLink,
   signInWithEmailLink,
 } from "firebase/auth";
+
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import BulletList from "@tiptap/extension-bullet-list";
+import ListItem from "@tiptap/extension-list-item";
+import "./App.css";
+
+function getNoteTitle(htmlContent) {
+  const text = htmlContent
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+  const lines = text.split("\n").filter(Boolean);
+  return lines[0] || "Untitled Note";
+}
 
 function App() {
   const [notes, setNotes] = useState([]);
@@ -23,26 +39,20 @@ function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [view, setView] = useState("list"); // "list" or "details"
+  const [view, setView] = useState("list");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     const handleEmailLinkSignIn = async () => {
       if (isSignInWithEmailLink(auth, window.location.href)) {
-        let email = localStorage.getItem("emailForSignIn");
-        if (!email) {
-          email = prompt("Please provide your email for confirmation");
-        }
+        let storedEmail = localStorage.getItem("emailForSignIn") || prompt("Please provide your email for confirmation");
         try {
-          const result = await signInWithEmailLink(auth, email, window.location.href);
+          await signInWithEmailLink(auth, storedEmail, window.location.href);
           localStorage.removeItem("emailForSignIn");
-          console.log("Successfully signed in:", result.user);
         } catch (error) {
           console.error("Error signing in with email link:", error);
         }
@@ -53,18 +63,13 @@ function App() {
 
   useEffect(() => {
     if (!user) return;
-
-    const fetchNotes = async () => {
+    (async () => {
       const notesCollection = collection(db, `users/${user.uid}/notes`);
       const notesSnapshot = await getDocs(notesCollection);
-      const notesList = notesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const notesList = notesSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setNotes(notesList);
       if (notesList.length > 0) setSelectedNote(notesList[0]);
-    };
-    fetchNotes();
+    })();
   }, [user]);
 
   const handleSignIn = async () => {
@@ -92,16 +97,6 @@ function App() {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      setNotes([]);
-      setSelectedNote(null);
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
-
   const handleCreateNote = async () => {
     if (!user) return;
     const newNote = { content: "" };
@@ -112,53 +107,62 @@ function App() {
     setView("details");
   };
 
-  const handleContentChange = async (event) => {
-    if (!selectedNote || !user) return;
-
-    const updatedContent = event.target.value;
-    const updatedNote = { ...selectedNote, content: updatedContent };
-    setSelectedNote(updatedNote);
-
-    const noteRef = doc(db, `users/${user.uid}/notes`, selectedNote.id);
-    await updateDoc(noteRef, { content: updatedContent });
+  const handleDeleteNote = async (noteId) => {
+    if (!user) return;
+    await deleteDoc(doc(db, `users/${user.uid}/notes`, noteId));
+    setNotes((prev) => prev.filter((note) => note.id !== noteId));
+    if (selectedNote && selectedNote.id === noteId) {
+      setSelectedNote(null);
+      setView("list");
+    }
   };
 
-  const handleBackToList = () => {
-    setView("list");
-  };
+  const editor = useEditor({
+    extensions: [StarterKit, BulletList, ListItem],
+    content: selectedNote?.content || "",
+    onUpdate: async ({ editor }) => {
+      if (!selectedNote || !user) return;
+      const updatedContent = editor.getHTML();
+      setSelectedNote((prev) => ({ ...prev, content: updatedContent }));
+      const noteRef = doc(db, `users/${user.uid}/notes`, selectedNote.id);
+      await updateDoc(noteRef, { content: updatedContent });
+    },
+  });
+
+  const handleBackToList = () => setView("list");
 
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col space-y-4 w-full max-w-md p-6">
+        <div className="flex flex-col space-y-4 w-full max-w-md p-6 bg-white shadow rounded">
           <input
             type="email"
             placeholder="Email"
-            className="border p-3 rounded-lg text-lg"
+            className="border p-3 rounded text-lg"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
             placeholder="Password"
-            className="border p-3 rounded-lg text-lg"
+            className="border p-3 rounded text-lg"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
-            className="bg-blue-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            className="bg-blue-500 text-white py-2 px-4 rounded text-lg font-medium hover:bg-blue-600 transition"
             onClick={handleSignIn}
           >
             Sign In
           </button>
           <button
-            className="bg-green-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            className="bg-green-500 text-white py-2 px-4 rounded text-lg font-medium hover:bg-green-600 transition"
             onClick={handleSignUp}
           >
             Sign Up
           </button>
           <button
-            className="bg-purple-500 text-white py-2 px-4 rounded-lg text-lg font-medium"
+            className="bg-purple-500 text-white py-2 px-4 rounded text-lg font-medium hover:bg-purple-600 transition"
             onClick={handleSendMagicLink}
           >
             Send Magic Link
@@ -169,55 +173,62 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen font-roboto">
+    <div className="app-container">
       {view === "list" ? (
-        <div className="w-full bg-gray-50 shadow-md">
-          <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl font-bold">
-            📝 Notes
-          </div>
-          <div className="flex-grow overflow-y-auto p-4 space-y-2">
+        <div className="sidebar">
+          <div className="sidebar-header">📝 Notes</div>
+          <div className="sidebar-content">
             {notes.map((note) => (
-              <div
-                key={note.id}
-                className={`p-3 bg-gray-100 rounded-lg shadow cursor-pointer hover:bg-gray-200 transition`}
-                onClick={() => {
-                  setSelectedNote(note);
-                  setView("details");
-                }}
-              >
-                {note.content.split("\n")[0] || "Untitled Note"}
+              <div key={note.id} className="note-item">
+                <div
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedNote(note);
+                    setView("details");
+                  }}
+                >
+                  {getNoteTitle(note.content)}
+                </div>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="delete-button"
+                >
+                  Delete
+                </button>
               </div>
             ))}
           </div>
           <div className="p-4">
-            <button
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg hover:bg-blue-600 transition"
-              onClick={handleCreateNote}
-            >
+            <button className="create-button" onClick={handleCreateNote}>
               Create Note
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col w-full h-screen bg-white">
-          {/* Updated Header */}
-          <div className="p-4 bg-gray-100 shadow-sm flex items-center space-x-4">
-            <button
-              className="text-blue-500 text-lg font-medium"
-              onClick={handleBackToList}
-            >
-              &lt; Back
-            </button>
-            <h1 className="text-xl font-semibold">{selectedNote?.content.split("\n")[0] || "Untitled Note"}</h1>
+        <div className="details-container">
+          <div className="details-header">
+            <button onClick={handleBackToList}>&lt; Back</button>
+            <h1 className="details-title">
+              {selectedNote ? getNoteTitle(selectedNote.content) : "Untitled Note"}
+            </h1>
           </div>
-
-          {/* Note Editor */}
-          <textarea
-            className="flex-grow w-full border-0 p-4 text-lg focus:ring-0 focus:outline-none"
-            placeholder="Start typing..."
-            value={selectedNote?.content || ""}
-            onChange={handleContentChange}
-          />
+          {editor && (
+            <div className="editor-toolbar">
+              <button
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className={editor.isActive("bulletList") ? "active" : ""}
+              >
+                Bullet List
+              </button>
+              <button
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={editor.isActive("bold") ? "active" : ""}
+              >
+                Bold
+              </button>
+            </div>
+          )}
+          <EditorContent editor={editor} />
         </div>
       )}
     </div>
